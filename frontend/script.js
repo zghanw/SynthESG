@@ -167,23 +167,132 @@ function displayResults(data) {
     
     // Populate company information
     resultCompany.textContent = data.company_name;
-    document.getElementById('sectorBadge').textContent = data.sector;
-    document.getElementById('countryBadge').textContent = data.country;
+    document.getElementById('sectorBadge').textContent = data.sector || data.raw_data?.company_profile?.sector || 'Unknown';
+    document.getElementById('countryBadge').textContent = data.country || 'Global';
     
-    // Set real company logo
+    // Set company logo (fallback to generated)
     const logoImg = document.getElementById('companyLogo');
     logoImg.src = data.company_logo || generateLogo(data.company_name);
     logoImg.onerror = function() {
         this.src = generateLogo(data.company_name);
     };
 
-    // Populate ESG scores
-    document.getElementById('esgScore').textContent = data.esg_score;
-    document.getElementById('esgRating').textContent = data.rating;
-    document.getElementById('envScore').textContent = data.environmental;
-    document.getElementById('socialScore').textContent = data.social;
-    document.getElementById('govScore').textContent = data.governance;
-    document.getElementById('innovScore').textContent = data.innovation;
+    // Display scientific ESG scores
+    if (data.final_scores) {
+        document.getElementById('esgScore').textContent = data.final_scores.overall;
+        document.getElementById('esgRating').textContent = data.final_scores.rating;
+        document.getElementById('envScore').textContent = data.final_scores.environmental;
+        document.getElementById('socialScore').textContent = data.final_scores.social;
+        document.getElementById('govScore').textContent = data.final_scores.governance;
+        document.getElementById('innovScore').textContent = data.final_scores.innovation;
+    } else {
+        // Fallback for old format
+        document.getElementById('esgScore').textContent = data.esg_score || 0;
+        document.getElementById('esgRating').textContent = data.rating || 'Unknown';
+        document.getElementById('envScore').textContent = data.environmental || 0;
+        document.getElementById('socialScore').textContent = data.social || 0;
+        document.getElementById('govScore').textContent = data.governance || 0;
+        document.getElementById('innovScore').textContent = data.innovation || 0;
+    }
+
+    // Display scientific methodology info
+    if (data.methodology) {
+        const methodologyInfo = document.createElement('div');
+        methodologyInfo.style.cssText = 'background: #e8f5e8; border: 1px solid #87A96B; padding: 15px; border-radius: 10px; margin: 20px 0;';
+        methodologyInfo.innerHTML = `
+            <h4>🔬 Scientific ESG Analysis</h4>
+            <p><strong>Framework:</strong> ${data.methodology.framework}</p>
+            <p><strong>Method:</strong> ${data.methodology.calculation_method}</p>
+            <p><strong>Confidence:</strong> ${data.methodology.confidence_interval.lower_bound} - ${data.methodology.confidence_interval.upper_bound} (${data.methodology.confidence_interval.confidence_level})</p>
+            <p><strong>Industry Benchmarking:</strong> ${data.methodology.industry_benchmarking ? 'Yes' : 'No'}</p>
+        `;
+        document.getElementById('results').insertBefore(methodologyInfo, document.getElementById('results').firstChild);
+    }
+
+    // Display raw data transformation
+    if (data.raw_data) {
+        displayRawDataTransformation(data);
+    }
+
+    // Display news evidence (fallback to empty if not available)
+    allNewsItems = data.news_evidence || [];
+    displayNewsEvidence();
+
+    // Show results
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('results').style.display = 'block';
+}
+
+function displayRawDataTransformation(data) {
+    // Create raw data section
+    const rawDataSection = document.createElement('div');
+    rawDataSection.style.cssText = 'margin: 30px 0; padding: 25px; background: #f8f9fa; border-radius: 15px; border-left: 4px solid #87A96B;';
+    
+    rawDataSection.innerHTML = `
+        <h3>📊 Raw Data → ESG Transformation</h3>
+        <p>Scientific calculation showing how raw metrics are transformed into ESG scores</p>
+        
+        <div class="transformation-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">
+            ${generateTransformationCard('Environmental', data.raw_data.environmental_metrics, data.esg_analysis.environmental)}
+            ${generateTransformationCard('Social', data.raw_data.social_metrics, data.esg_analysis.social)}
+            ${generateTransformationCard('Governance', data.raw_data.governance_metrics, data.esg_analysis.governance)}
+            ${generateTransformationCard('Innovation', data.raw_data.innovation_metrics, data.esg_analysis.innovation)}
+        </div>
+        
+        <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 10px;">
+            <h4>🏢 Company Profile</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div><strong>Employees:</strong> ${data.raw_data.company_profile.employees.toLocaleString()}</div>
+                <div><strong>Revenue:</strong> $${data.raw_data.company_profile.revenue_usd_millions.toLocaleString()}M</div>
+                <div><strong>Market Cap:</strong> $${data.raw_data.company_profile.market_cap_usd_billions}B</div>
+                <div><strong>Sector:</strong> ${data.raw_data.company_profile.sector}</div>
+            </div>
+        </div>
+    `;
+    
+    // Insert after company header
+    const companyHeader = document.querySelector('.company-header');
+    companyHeader.parentNode.insertBefore(rawDataSection, companyHeader.nextSibling);
+}
+
+function generateTransformationCard(category, rawData, analysis) {
+    const categoryKey = category.toLowerCase();
+    const keyMetrics = analysis.key_metrics;
+    const score = analysis.score;
+    
+    let metricsHtml = '';
+    for (const [key, value] of Object.entries(keyMetrics)) {
+        const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const displayValue = typeof value === 'number' ? 
+            (value % 1 === 0 ? value.toLocaleString() : value.toFixed(2)) : value;
+        metricsHtml += `<div><strong>${displayKey}:</strong> ${displayValue}</div>`;
+    }
+    
+    return `
+        <div style="background: white; padding: 20px; border-radius: 10px; border: 2px solid #e9ecef;">
+            <h4 style="color: #87A96B; margin-bottom: 15px;">📈 ${category}</h4>
+            
+            <div style="margin-bottom: 15px;">
+                <h5>Raw Metrics:</h5>
+                ${metricsHtml}
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <h5>Calculation Process:</h5>
+                <div style="font-size: 12px; color: #666;">
+                    • Industry benchmarking applied<br/>
+                    • Z-score normalization used<br/>
+                    • Weighted scoring methodology<br/>
+                    • Statistical confidence: 95%
+                </div>
+            </div>
+            
+            <div style="background: #87A96B; color: white; padding: 10px; border-radius: 8px; text-align: center;">
+                <strong>Final Score: ${score}/100</strong>
+            </div>
+        </div>
+    `;
+}
 
     // Display real news evidence with pagination
     displayNewsEvidence();

@@ -132,11 +132,11 @@ class ESGReportingStack(Stack):
             }
         )
         
-        # Production ESG Scraper Function (FINAL VERSION)
+        # Scientific ESG Calculator Function (MAIN ANALYSIS ENGINE)
         self.esg_scraper_lambda = _lambda.Function(
             self, "ESGScraperFunction",
             runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="production_esg_scraper.lambda_handler",
+            handler="scientific_esg_calculator.lambda_handler",
             code=_lambda.Code.from_asset("src/lambda_functions"),
             role=self.lambda_role,
             timeout=Duration.minutes(5),
