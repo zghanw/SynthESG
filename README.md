@@ -1,7 +1,5 @@
 # 🏆 ESGenius AI - ESG Intelligence Platform
 
-**Winner of Great Malaysia AI Hackathon 2025**
-
 An AI-powered ESG (Environmental, Social, Governance) intelligence platform that automates ESG data collection, analysis, and reporting using AWS AI services.
 
 ![ESG Intelligence Platform](https://img.shields.io/badge/AWS-Serverless-orange) ![Python](https://img.shields.io/badge/Python-3.12-blue) ![AI](https://img.shields.io/badge/AI-Powered-green) ![Malaysia](https://img.shields.io/badge/Region-Malaysia-red)
