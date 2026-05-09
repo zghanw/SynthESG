@@ -1,235 +1,87 @@
+"""
+SynthESG — AWS CDK Infrastructure Stack.
+
+Provisions:
+- S3 bucket for frontend static hosting
+- CloudFront distribution for global CDN delivery
+- S3 bucket for exported JSON reports (private)
+
+No database or auth infrastructure — the app is stateless.
+"""
+
 from aws_cdk import (
+    CfnOutput,
+    RemovalPolicy,
     Stack,
-    Duration,
-    aws_lambda as _lambda,
+    aws_cloudfront as cloudfront,
+    aws_cloudfront_origins as origins,
     aws_s3 as s3,
-    aws_dynamodb as dynamodb,
-    aws_iam as iam,
-    aws_kms as kms,
-    aws_logs as logs,
-    aws_apigateway as apigateway,
-    aws_s3_deployment as s3deploy,
-    RemovalPolicy
 )
 from constructs import Construct
 
-class ESGReportingStack(Stack):
+
+class SynthESGStack(Stack):
+    """Main infrastructure stack for SynthESG."""
+
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
-        
-        # KMS Key for encryption
-        self.kms_key = kms.Key(
-            self, "ESGDataKey",
-            description="KMS key for ESG data encryption",
-            enable_key_rotation=True
+
+        # ── Frontend S3 Bucket ──────────────────────────────
+        frontend_bucket = s3.Bucket(
+            self, "FrontendBucket",
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True,
         )
-        
-        # S3 Buckets (with unique names)
-        self.raw_data_bucket = s3.Bucket(
-            self, "ESGRawDataBucket",
-            encryption=s3.BucketEncryption.KMS,
-            encryption_key=self.kms_key,
-            versioned=True,
-            removal_policy=RemovalPolicy.DESTROY
+
+        # ── CloudFront Distribution ─────────────────────────
+        # Serves the frontend globally with HTTPS and caching.
+        oac = cloudfront.S3OriginAccessControl(
+            self, "FrontendOAC",
+            description="SynthESG frontend OAC",
         )
-        
-        self.reports_bucket = s3.Bucket(
-            self, "ESGReportsBucket",
-            encryption=s3.BucketEncryption.KMS,
-            encryption_key=self.kms_key,
-            versioned=True,
-            removal_policy=RemovalPolicy.DESTROY
-        )
-        
-        # DynamoDB Table
-        self.esg_table = dynamodb.Table(
-            self, "ESGProcessedData",
-            table_name="esg-processed-data",
-            partition_key=dynamodb.Attribute(
-                name="id",
-                type=dynamodb.AttributeType.STRING
+
+        distribution = cloudfront.Distribution(
+            self, "FrontendDistribution",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.S3BucketOrigin.with_origin_access_control(
+                    frontend_bucket,
+                    origin_access_control=oac,
+                ),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
             ),
-            sort_key=dynamodb.Attribute(
-                name="timestamp",
-                type=dynamodb.AttributeType.STRING
-            ),
-            encryption=dynamodb.TableEncryption.CUSTOMER_MANAGED,
-            encryption_key=self.kms_key,
-            removal_policy=RemovalPolicy.DESTROY
+            default_root_object="index.html",
+            error_responses=[
+                cloudfront.ErrorResponse(
+                    http_status=403,
+                    response_page_path="/index.html",
+                    response_http_status=200,
+                ),
+            ],
         )
-        
-        # IAM Role for Lambda functions
-        self.lambda_role = iam.Role(
-            self, "ESGLambdaRole",
-            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")
-            ]
+
+        # ── Reports Bucket (private) ────────────────────────
+        reports_bucket = s3.Bucket(
+            self, "ReportsBucket",
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True,
         )
-        
-        # Add permissions to Lambda role
-        self.lambda_role.add_to_policy(
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "textract:StartDocumentAnalysis",
-                    "textract:GetDocumentAnalysis",
-                    "bedrock:InvokeModel",
-                    "kendra:Query",
-                    "kendra:Retrieve"
-                ],
-                resources=["*"]
-            )
+
+        # ── Outputs ────────────────────────────────────────
+        CfnOutput(
+            self, "FrontendUrl",
+            value=f"https://{distribution.distribution_domain_name}",
+            description="SynthESG frontend URL (CloudFront)",
         )
-        
-        # Grant permissions for S3 and DynamoDB
-        self.raw_data_bucket.grant_read_write(self.lambda_role)
-        self.reports_bucket.grant_read_write(self.lambda_role)
-        self.esg_table.grant_read_write_data(self.lambda_role)
-        self.kms_key.grant_encrypt_decrypt(self.lambda_role)
-        
-        # Lambda Functions
-        self.data_ingestion_lambda = _lambda.Function(
-            self, "DataIngestionFunction",
-            runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="data_ingestion.lambda_handler",
-            code=_lambda.Code.from_asset("src/lambda_functions"),
-            role=self.lambda_role,
-            timeout=Duration.minutes(5),
-            memory_size=512,
-            environment={
-                "RAW_DATA_BUCKET": self.raw_data_bucket.bucket_name,
-                "KMS_KEY_ID": self.kms_key.key_id
-            }
+        CfnOutput(
+            self, "FrontendBucketName",
+            value=frontend_bucket.bucket_name,
+            description="S3 bucket — upload frontend files here",
         )
-        
-        self.data_processing_lambda = _lambda.Function(
-            self, "DataProcessingFunction",
-            runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="data_processing.lambda_handler",
-            code=_lambda.Code.from_asset("src/lambda_functions"),
-            role=self.lambda_role,
-            timeout=Duration.minutes(5),
-            memory_size=1024,
-            environment={
-                "ESG_TABLE_NAME": self.esg_table.table_name,
-                "KMS_KEY_ID": self.kms_key.key_id
-            }
-        )
-        
-        self.report_generation_lambda = _lambda.Function(
-            self, "ReportGenerationFunction",
-            runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="report_generation.lambda_handler",
-            code=_lambda.Code.from_asset("src/lambda_functions"),
-            role=self.lambda_role,
-            timeout=Duration.minutes(10),
-            memory_size=2048,
-            environment={
-                "ESG_TABLE_NAME": self.esg_table.table_name,
-                "REPORTS_BUCKET": self.reports_bucket.bucket_name,
-                "KMS_KEY_ID": self.kms_key.key_id
-            }
-        )
-        
-        # Scientific ESG Calculator Function (MAIN ANALYSIS ENGINE)
-        self.esg_scraper_lambda = _lambda.Function(
-            self, "ESGScraperFunction",
-            runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="scientific_esg_calculator.lambda_handler",
-            code=_lambda.Code.from_asset("src/lambda_functions"),
-            role=self.lambda_role,
-            timeout=Duration.minutes(5),
-            memory_size=1024,
-            environment={
-                "ESG_TABLE_NAME": self.esg_table.table_name,
-                "RAW_DATA_BUCKET": self.raw_data_bucket.bucket_name,
-                "KMS_KEY_ID": self.kms_key.key_id
-            }
-        )
-        
-        # Report Generation Function (PRODUCTION)
-        self.report_generation_lambda = _lambda.Function(
-            self, "ReportGenerationFunction",
-            runtime=_lambda.Runtime.PYTHON_3_12,
-            handler="professional_report_generator.lambda_handler",
-            code=_lambda.Code.from_asset("src/lambda_functions"),
-            role=self.lambda_role,
-            timeout=Duration.minutes(10),
-            memory_size=2048,
-            environment={
-                "ESG_TABLE_NAME": self.esg_table.table_name,
-                "REPORTS_BUCKET": self.reports_bucket.bucket_name,
-                "KMS_KEY_ID": self.kms_key.key_id
-            }
-        )
-        
-        # CloudWatch Log Groups
-        logs.LogGroup(
-            self, "DataIngestionLogs",
-            log_group_name=f"/aws/lambda/{self.data_ingestion_lambda.function_name}",
-            retention=logs.RetentionDays.ONE_WEEK,
-            removal_policy=RemovalPolicy.DESTROY
-        )
-        
-        logs.LogGroup(
-            self, "DataProcessingLogs",
-            log_group_name=f"/aws/lambda/{self.data_processing_lambda.function_name}",
-            retention=logs.RetentionDays.ONE_WEEK,
-            removal_policy=RemovalPolicy.DESTROY
-        )
-        
-        logs.LogGroup(
-            self, "ReportGenerationLogs",
-            log_group_name=f"/aws/lambda/{self.report_generation_lambda.function_name}",
-            retention=logs.RetentionDays.ONE_WEEK,
-            removal_policy=RemovalPolicy.DESTROY
-        )
-        
-        logs.LogGroup(
-            self, "ESGScraperLogs",
-            log_group_name=f"/aws/lambda/{self.esg_scraper_lambda.function_name}",
-            retention=logs.RetentionDays.ONE_WEEK,
-            removal_policy=RemovalPolicy.DESTROY
-        )
-        
-        # S3 Bucket for Frontend Website
-        self.frontend_bucket = s3.Bucket(
-            self, "ESGFrontendBucket",
-            website_index_document="index.html",
-            public_read_access=True,
-            block_public_access=s3.BlockPublicAccess.BLOCK_ACLS,
-            removal_policy=RemovalPolicy.DESTROY
-        )
-        
-        # API Gateway
-        self.api = apigateway.RestApi(
-            self, "ESGApi",
-            rest_api_name="ESGenius AI API",
-            description="Global ESG Intelligence Platform API",
-            default_cors_preflight_options=apigateway.CorsOptions(
-                allow_origins=apigateway.Cors.ALL_ORIGINS,
-                allow_methods=apigateway.Cors.ALL_METHODS,
-                allow_headers=["Content-Type", "Authorization"]
-            )
-        )
-        
-        # API Gateway Integrations (PRODUCTION)
-        scraper_integration = apigateway.LambdaIntegration(self.esg_scraper_lambda)
-        report_integration = apigateway.LambdaIntegration(self.report_generation_lambda)
-        
-        # API Routes
-        api_v1 = self.api.root.add_resource("api").add_resource("v1")
-        
-        analyze_resource = api_v1.add_resource("analyze")
-        analyze_resource.add_method("POST", scraper_integration)
-        
-        report_resource = api_v1.add_resource("report")
-        report_resource.add_method("POST", report_integration)
-        
-        # Deploy Frontend to S3
-        s3deploy.BucketDeployment(
-            self, "DeployFrontend",
-            sources=[s3deploy.Source.asset("frontend")],
-            destination_bucket=self.frontend_bucket
+        CfnOutput(
+            self, "ReportsBucketName",
+            value=reports_bucket.bucket_name,
+            description="S3 bucket for exported JSON reports",
         )

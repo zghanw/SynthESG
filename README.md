@@ -1,300 +1,189 @@
-# 🏆 ESGenius AI - Scientific ESG Intelligence Platform
+# SynthESG — AI-Powered ESG Intelligence Platform
 
-**Winner of Great Malaysia AI Hackathon 2025**
+> Real-time Environmental, Social & Governance intelligence powered by AI web research.
+> Enter any company name — SynthESG crawls the live web, benchmarks findings against sector averages, and returns a structured ESG scorecard with source evidence.
 
-A scientifically-rigorous ESG (Environmental, Social, Governance) intelligence platform that transforms raw company data into professional ESG scores using advanced algorithms and AWS AI services.
+---
 
-![ESG Intelligence Platform](https://img.shields.io/badge/AWS-Serverless-orange) ![Python](https://img.shields.io/badge/Python-3.12-blue) ![AI](https://img.shields.io/badge/AI-Powered-green) ![Malaysia](https://img.shields.io/badge/Region-Malaysia-red) ![Scientific](https://img.shields.io/badge/Scientific-Algorithms-purple)
+## Tech Stack
 
-## 🔬 Scientific ESG Methodology
+![Python](https://img.shields.io/badge/Python_3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Pydantic](https://img.shields.io/badge/Pydantic_v2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+![AWS](https://img.shields.io/badge/AWS_CDK-232F3E?style=for-the-badge&logo=amazonaws&logoColor=white)
+![S3](https://img.shields.io/badge/AWS_S3-569A31?style=for-the-badge&logo=amazons3&logoColor=white)
+![CloudFront](https://img.shields.io/badge/CloudFront-8C4FFF?style=for-the-badge&logo=amazonaws&logoColor=white)
+![Tavily](https://img.shields.io/badge/Tavily_API-00B4D8?style=for-the-badge&logo=search&logoColor=white)
+![jsPDF](https://img.shields.io/badge/jsPDF-FF0000?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)
 
-### **Raw Data → Information Transformation**
+---
 
-Our system demonstrates **real scientific calculation** rather than mock data:
+## How It Works
 
-**Environmental Analysis:**
-- **Raw Metrics**: Carbon intensity (45.2 tCO2e/M$), Renewable energy (68%), Waste recycling (75%)
-- **Algorithm**: Z-score normalization against industry benchmarks
-- **Output**: Environmental Score (23/25) with 95% confidence interval
+```
+User enters a company name
+         ↓
+POST /api/v1/analyze
+         ↓
+Tavily Query 1: Company profile → detect sector & HQ country
+Tavily Query 2: ESG & environmental impact
+Tavily Query 3: Social responsibility & workforce
+Tavily Query 4: Governance & ethics
+         ↓
+Sector-benchmarked scoring algorithm
+         ↓
+Structured ESG scorecard + source evidence + PDF export
+```
 
-**Social Analysis:**
-- **Raw Metrics**: Gender diversity (42%), Safety incidents (1.2/year), Employee satisfaction (7.8/10)
-- **Algorithm**: Weighted scoring with sector comparison
-- **Output**: Social Score (24/25) with statistical validation
+---
 
-**Governance Analysis:**
-- **Raw Metrics**: Board independence (78%), CEO pay ratio (285:1), Ethics violations (12)
-- **Algorithm**: Inverse scoring for negative metrics
-- **Output**: Governance Score (22/25) with transparency
+## Project Structure
 
-**Innovation Analysis:**
-- **Raw Metrics**: R&D spending (15% of revenue), Patents (890), Automation (45%)
-- **Algorithm**: Performance-based scoring with benchmarks
-- **Output**: Innovation Score (25/25) with confidence intervals
+```
+├── app/
+│   ├── __init__.py
+│   ├── main.py               # FastAPI entry point + CORS
+│   ├── config.py             # Pydantic Settings — loads from .env
+│   ├── api/
+│   │   ├── router.py         # Route aggregation
+│   │   └── analysis.py       # POST /analyze — core endpoint
+│   └── services/
+│       ├── research.py       # Tavily web crawling + sector/country detection
+│       ├── scoring.py        # Sector-benchmarked ESG scoring algorithm
+│       └── logo.py           # Company logo resolution
+├── infrastructure/
+│   └── esg_stack.py          # CDK stack: S3 + CloudFront
+├── frontend/
+│   ├── index.html            # Main UI
+│   ├── styles.css            # Dark-mode design system
+│   └── script.js             # API client, score rendering, PDF export
+├── .env.example              # Configuration template
+└── requirements.txt
+```
 
-### **Scientific Algorithms Implemented**
+---
 
-1. **Z-Score Normalization:**
-   ```
-   Score = 50 + ((Value - Industry_Mean) / Industry_StdDev) * 15
-   ```
+## Features
 
-2. **Weighted Scoring:**
-   ```
-   Category_Score = Σ(Metric_Score × Weight) for all metrics
-   ```
+- 🔍 **Real-time AI research** — 4 targeted Tavily queries per analysis (ESG, environmental, social, governance)
+- 🏭 **Sector detection** — automatically classifies companies across 14 sectors using a dedicated profile query
+- 🌍 **HQ country detection** — identifies headquarters across 18 countries from research text
+- 📊 **Sector-benchmarked scoring** — scores are calibrated against sector-specific baselines, not generic averages
+- 📄 **PDF export** — generates a clean, formatted A4 ESG report with branding, score summary, insights, and sources
+- 🖥️ **Dark-mode SaaS UI** — animated score ring, pillar bars, source evidence cards
 
-3. **Confidence Intervals:**
-   ```
-   95% CI = Score ± 3.2 (based on data quality)
-   ```
+---
 
-4. **Industry Benchmarking:**
-   - Technology: High R&D, Lower carbon intensity
-   - Financial: High governance, Lower innovation
-   - Automotive: High carbon, High innovation
-
-## 🌟 Key Features
-
-- **🔬 Scientific Rigor**: Real algorithms with statistical confidence intervals
-- **📊 Data Transformation**: Raw metrics → Normalized scores → ESG ratings
-- **🏭 Industry Benchmarking**: Sector-specific standards and comparisons
-- **🤖 AI Integration**: Amazon Bedrock and Textract for document processing
-- **📱 Professional UI**: Corporate-grade interface showing calculation breakdown
-- **🔒 Data Governance**: Complete audit trail in AWS DynamoDB
-- **🌏 Malaysia Deployment**: Compliant with local data residency requirements
-
-## 🏗️ Architecture
-
-![AWS Architecture](aws_architecture.png)
-
-**Serverless AWS Architecture:**
-- **Frontend**: S3 Static Website with scientific data visualization
-- **API**: API Gateway with Lambda-based calculation engine
-- **AI Services**: Amazon Bedrock, Textract for document analysis
-- **Storage**: S3 (encrypted), DynamoDB for audit trail
-- **Security**: KMS encryption, IAM roles
-- **Monitoring**: CloudWatch logs and metrics
-
-*See [AWS_SERVICES_USED.md](AWS_SERVICES_USED.md) for complete service specifications and configurations.*
-
-## 🚀 Quick Start
+## Getting Started
 
 ### Prerequisites
-- AWS CLI configured with appropriate permissions
-- Node.js 18+ for CDK
+
 - Python 3.12+
+- A [Tavily API key](https://tavily.com) — free tier, 1,000 credits/month
 
-### 1. Clone Repository
-```bash
-git clone https://github.com/yourusername/esgenius-ai.git
-cd esgenius-ai
-```
+### Run Locally
 
-### 2. Install Dependencies
 ```bash
-# Install Python dependencies
+# 1. Clone the repository
+git clone https://github.com/zghanw/SynthESG.git
+cd SynthESG
+
+# 2. Create and activate a virtual environment
+python -m venv venv
+.\venv\Scripts\activate        # Windows
+# source venv/bin/activate     # macOS / Linux
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# Install CDK
+# 4. Configure environment
+cp .env.example .env
+# Open .env and set your TAVILY_API_KEY
+
+# 5. Start the API server
+uvicorn app.main:app --reload --port 8000
+```
+
+Then open `frontend/index.html` in your browser, or visit **http://localhost:8000/docs** for the interactive Swagger UI.
+
+### Deploy to AWS
+
+```bash
 npm install -g aws-cdk
-```
-
-### 3. Configure AWS
-```bash
-# Set Malaysia region
-aws configure set region ap-southeast-5
-
-# Bootstrap CDK (first time only)
 cdk bootstrap --region ap-southeast-5
+cdk deploy SynthESGStack
 ```
 
-### 4. Deploy
+---
+
+## API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/health` | Health check |
+| `POST` | `/api/v1/analyze` | Analyze a company's ESG performance |
+
+### Example
+
 ```bash
-# Deploy the complete system
-cdk deploy ESGReportingStack --region ap-southeast-5
-```
-
-## 🧪 Scientific Demo Flow
-
-### **For Judges and Stakeholders:**
-
-1. **Input**: Company name (e.g., "Apple")
-2. **Raw Data Generation**: System shows realistic metrics
-   - 150,000 employees, $280B revenue
-   - 45.2 tCO2e/M$ carbon intensity
-   - 68% renewable energy usage
-3. **Algorithm Application**: Demonstrates Z-score calculations
-4. **Industry Benchmarking**: Compares to Technology sector standards
-5. **Final Scores**: Presents with confidence intervals
-6. **AWS Console**: Shows data stored in DynamoDB for audit
-
-### API Analysis Example
-```bash
-curl -X POST https://your-api-gateway-url/prod/api/v1/analyze \
+curl -X POST http://localhost:8000/api/v1/analyze \
   -H "Content-Type: application/json" \
-  -d '{"company_name": "Apple", "sector": "Technology"}'
+  -d '{"company_name": "Microsoft"}'
 ```
 
-### Scientific Response Example
+**Response:**
+
 ```json
 {
-  "company_name": "Apple",
-  "raw_data": {
-    "environmental_metrics": {
-      "carbon_emissions": {
-        "carbon_intensity_per_revenue": 45.2
-      },
-      "energy_consumption": {
-        "renewable_percentage": 68.4
-      }
-    }
-  },
-  "esg_analysis": {
-    "environmental": {
-      "score": 23.1,
-      "breakdown": {
-        "carbon_intensity": 78.5,
-        "renewable_energy": 82.3
-      },
-      "key_metrics": {
-        "carbon_intensity_tco2e_per_m_revenue": 45.2,
-        "renewable_energy_percentage": 68.4
-      }
-    }
-  },
-  "methodology": {
-    "framework": "Scientific ESG Framework v2.1",
-    "calculation_method": "Weighted Z-Score Normalization",
-    "confidence_interval": {
-      "lower_bound": 86.8,
-      "upper_bound": 93.2,
-      "confidence_level": "95%"
-    }
+  "company_name": "Microsoft",
+  "company_logo": "https://logo.clearbit.com/microsoft.com",
+  "sector": "Technology",
+  "country": "United States",
+  "esg_score": 84,
+  "rating": "Excellent",
+  "environmental": 22,
+  "social": 21,
+  "governance": 22,
+  "innovation": 19,
+  "research_insights": [...],
+  "news_evidence": [...],
+  "research_meta": {
+    "queries_used": 4,
+    "researched_at": "2025-01-01T00:00:00Z"
   }
 }
 ```
 
-## 🎯 Supported Companies
+---
 
-**Technology**: Apple, Microsoft, Tesla, Amazon, Google, Meta, Netflix, NVIDIA  
-**Malaysian**: Maybank, CIMB, Genting, Tenaga Nasional  
-**International**: Samsung, Toyota, Unilever, Nestlé  
+## Scoring Methodology
 
-## 📊 ESG Frameworks
+Each company is evaluated across four pillars, each scored out of 25:
 
-- **GRI** (Global Reporting Initiative)
-- **SASB** (Sustainability Accounting Standards Board)  
-- **TCFD** (Task Force on Climate-related Financial Disclosures)
-- **Scientific ESG Framework v2.1** (Our proprietary methodology)
+| Pillar | What It Measures |
+|--------|----------------|
+| **Environmental** | Carbon emissions, renewable energy adoption, climate initiatives |
+| **Social** | Workforce diversity, employee wellbeing, community engagement |
+| **Governance** | Board independence, executive accountability, ethics & compliance |
+| **Innovation** | ESG-driven R&D, green technology investment, sustainability roadmap |
 
-## 🔧 Technical Stack
-
-**Backend:**
-- AWS Lambda (Python 3.12) with scientific calculation engine
-- Amazon Bedrock (AI Analysis)
-- Amazon Textract (Document Processing)
-- DynamoDB (Audit trail and data governance)
-- S3 (File Storage with encryption)
-
-**Scientific Computing:**
-- Statistical normalization algorithms
-- Industry benchmarking methodology
-- Confidence interval calculations
-- Weighted scoring frameworks
-
-**Frontend:**
-- HTML5/CSS3/JavaScript with data visualization
-- Real-time calculation display
-- Scientific methodology transparency
-
-**Infrastructure:**
-- AWS CDK (Infrastructure as Code)
-- KMS encryption for data security
-- CloudWatch monitoring and logging
-- API Gateway for scalable access
-
-## 🏆 Hackathon Competitive Advantages
-
-### **Technical Sophistication:**
-- **Real Algorithms**: Not mock data, actual scientific calculations
-- **Industry Standards**: Based on established ESG frameworks
-- **Statistical Rigor**: Z-score normalization, confidence intervals
-- **Complete Transparency**: Raw data visible, calculations explainable
-
-### **Professional Implementation:**
-- **AWS Integration**: Production-ready cloud architecture
-- **Data Governance**: Complete audit trail in DynamoDB
-- **Scalable Design**: Serverless, handles enterprise workloads
-- **Regulatory Compliance**: Meets ESG reporting standards
-
-### **Business Value:**
-- **Investment Grade**: Suitable for financial decision-making
-- **Audit Ready**: Complete calculation transparency
-- **Scientifically Defensible**: Peer-reviewable methodology
-- **Commercial Viability**: Ready for enterprise deployment
-
-## 📈 Performance Metrics
-
-- **Calculation Speed**: Real-time ESG scoring in <3 seconds
-- **Data Processing**: 1000+ metrics processed per analysis
-- **Statistical Accuracy**: 95% confidence intervals
-- **Industry Coverage**: 5+ major sectors with specific benchmarks
-- **Audit Trail**: 100% calculation transparency
-
-## 🔒 Security & Compliance Features
-
-- **Encryption**: KMS encryption at rest and in transit
-- **Access Control**: IAM roles with least privilege
-- **Audit Trail**: Complete logging of all calculations
-- **Data Residency**: Malaysia region deployment
-- **Regulatory Compliance**: ESG reporting standards adherence
-
-## 🌍 Environmental Impact
-
-This platform helps organizations:
-- Reduce ESG reporting time by 50-80%
-- Improve sustainability transparency with scientific rigor
-- Enable data-driven ESG decisions with confidence intervals
-- Support UN Sustainable Development Goals with measurable metrics
-
-## 📝 License
-
-This project was developed for the Great Malaysia AI Hackathon 2025.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## 📞 Support
-
-For questions or support:
-- 📧 Email: support@esgenius.ai
-- 🐛 Issues: GitHub Issues
-- 📖 Documentation: See project files
-
-## 🙏 Acknowledgments
-
-- **AWS Malaysia** for cloud infrastructure support
-- **Great Malaysia AI Hackathon 2025** organizers
-- **ESG Research Community** for scientific methodology guidance
-- **Open source community** for tools and libraries
+Scores are seeded by **sector-specific benchmarks** (14 sectors) and adjusted up or down based on real-time research findings. Maximum total score: **100**.
 
 ---
 
-## 🎯 **Ready for Hackathon Victory!**
+## Configuration
 
-**ESGenius AI demonstrates:**
-- ✅ **Scientific rigor** with real algorithms and statistical confidence
-- ✅ **Data transformation** from raw metrics to actionable insights  
-- ✅ **Professional methodology** suitable for regulatory compliance
-- ✅ **AWS integration** with complete data governance
-- ✅ **Commercial viability** for real-world enterprise deployment
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TAVILY_API_KEY` | ✅ | Your Tavily API key — get one free at [tavily.com](https://tavily.com) |
+| `AWS_REGION` | Production only | AWS region for CDK deployment |
+| `S3_REPORTS_BUCKET` | Production only | S3 bucket name for exported reports |
 
-**Built with ❤️ and 🔬 for sustainable business intelligence**
+---
 
-*ESGenius AI - Transforming ESG reporting through scientific artificial intelligence*
+## License
+
+MIT

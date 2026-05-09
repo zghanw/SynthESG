@@ -1,478 +1,567 @@
-// Configuration - Real AWS API Gateway URL
+/**
+ * SynthESG — Frontend Application
+ *
+ * Handles company ESG analysis via the API, renders research
+ * insights, animated score visualizations, and source evidence.
+ */
+
+// ---------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------
+
 const CONFIG = {
-    API_ENDPOINT: 'https://2n6a4d3y55.execute-api.ap-southeast-5.amazonaws.com/prod',
-    REGION: 'ap-southeast-5'
+    // For local development: http://localhost:8000
+    // For production: set window.SYNTHESG_API_ENDPOINT before loading this script
+    API_ENDPOINT: window.SYNTHESG_API_ENDPOINT || 'http://localhost:8000',
 };
 
-// Global variables for news pagination
-let currentNewsPage = 0;
-let newsPerPage = 3;
-let allNewsItems = [];
 let currentCompanyData = null;
 
+// DOM helpers
+const $ = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------
+// Quick Search
+// ---------------------------------------------------------------
+
+function quickSearch(company) {
+    $('companyName').value = company;
+    analyzeCompany();
+}
+
+// ---------------------------------------------------------------
+// Main Analysis
+// ---------------------------------------------------------------
+
 async function analyzeCompany() {
-    const companyInput = document.getElementById('companyName').value.trim();
+    const companyInput = $('companyName').value.trim();
     if (!companyInput) {
-        alert('Please enter a company name');
+        $('companyName').focus();
         return;
     }
 
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('results').style.display = 'none';
+    // Show loading
+    showSection('loading');
+    updateLoadingSteps(1);
 
     try {
-        // Call professional AWS API
+        // Step 1: Validating
+        await delay(400);
+        updateLoadingSteps(2);
+        $('loadingStatus').textContent = `Researching ESG data for "${companyInput}"…`;
+
         const response = await fetch(`${CONFIG.API_ENDPOINT}/api/v1/analyze`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                company_name: companyInput
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_name: companyInput }),
         });
 
         if (!response.ok) {
-            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+            const err = await response.json().catch(() => ({}));
+            if (err.error === 'company_not_found') {
+                showError('Company Not Found', err.message, err.suggestion, 'danger');
+                return;
+            }
+            throw new Error(err.error || `HTTP ${response.status}`);
         }
 
         const data = await response.json();
-        
-        // Check for company validation errors
-        if (data.error === 'company_not_found') {
-            showCompanyNotFoundError(data);
+        if (data.error) {
+            showError('Analysis Error', data.message || data.error, data.suggestion, 'warning');
             return;
         }
-        
-        // Check for insufficient ESG data error
-        if (data.error === 'insufficient_esg_data') {
-            showInsufficientESGDataError(data);
-            return;
-        }
-        
+
+        // Step 3: Scoring
+        updateLoadingSteps(3);
+        $('loadingStatus').textContent = 'Calculating scores…';
+        await delay(300);
+
         currentCompanyData = data;
-        allNewsItems = data.news_evidence || [];
         displayResults(data);
 
     } catch (error) {
-        console.error('API call failed:', error);
-        document.getElementById('loading').style.display = 'none';
-        alert(`Failed to analyze ${companyInput}. Error: ${error.message}`);
+        console.error('Analysis failed:', error);
+        showError('Connection Error', error.message, 'Check your connection and try again.', 'danger');
     }
 }
 
-function showInsufficientDataError(errorData) {
-    document.getElementById('loading').style.display = 'none';
-    
-    const errorHtml = `
-        <div style="background: rgba(255, 255, 255, 0.95); padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
-            <div style="color: #e74c3c; font-size: 3rem; margin-bottom: 20px;">
-                <i class="fas fa-exclamation-triangle"></i>
-            </div>
-            <h2 style="color: #e74c3c; margin-bottom: 15px;">Insufficient ESG Data</h2>
-            <p style="font-size: 18px; margin-bottom: 20px; color: #666;">
-                ${errorData.message}
-            </p>
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                <h4>Data Quality Assessment:</h4>
-                <p>Quality Score: ${errorData.data_quality.quality_score}/${errorData.data_quality.max_score}</p>
-                <p>Data Sources Found: ${errorData.data_quality.data_sources}</p>
-                <p>Status: ${errorData.data_quality.recommendation}</p>
-            </div>
-            <p style="color: #666; margin-bottom: 30px;">
-                ${errorData.suggestion}
-            </p>
-            <button class="btn btn-primary" onclick="newSearch()">
-                <i class="fas fa-search"></i>
-                Try Another Company
-            </button>
-        </div>
-    `;
-    
-    document.getElementById('results').innerHTML = errorHtml;
-    document.getElementById('results').style.display = 'block';
-}
-
-function showCompanyNotFoundError(errorData) {
-    document.getElementById('loading').style.display = 'none';
-    
-    const errorHtml = `
-        <div style="background: rgba(255, 255, 255, 0.95); padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
-            <div style="color: #e74c3c; font-size: 3rem; margin-bottom: 20px;">
-                <i class="fas fa-building"></i>
-            </div>
-            <h2 style="color: #e74c3c; margin-bottom: 15px;">Company Not Found</h2>
-            <p style="font-size: 18px; margin-bottom: 20px; color: #666;">
-                ${errorData.message}
-            </p>
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                <h4>Validation Results:</h4>
-                <p>Confidence Level: ${errorData.validation_confidence}%</p>
-                <p>Status: Company could not be verified as legitimate business</p>
-            </div>
-            <p style="color: #666; margin-bottom: 30px;">
-                ${errorData.suggestion}
-            </p>
-            <button class="btn btn-primary" onclick="newSearch()">
-                <i class="fas fa-search"></i>
-                Try Another Company
-            </button>
-        </div>
-    `;
-    
-    document.getElementById('results').innerHTML = errorHtml;
-    document.getElementById('results').style.display = 'block';
-}
-
-function showInsufficientESGDataError(errorData) {
-    document.getElementById('loading').style.display = 'none';
-    
-    const errorHtml = `
-        <div style="background: rgba(255, 255, 255, 0.95); padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
-            <div style="color: #f39c12; font-size: 3rem; margin-bottom: 20px;">
-                <i class="fas fa-chart-line"></i>
-            </div>
-            <h2 style="color: #f39c12; margin-bottom: 15px;">Insufficient ESG Data</h2>
-            <p style="font-size: 18px; margin-bottom: 20px; color: #666;">
-                ${errorData.message}
-            </p>
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                <h4>Data Analysis:</h4>
-                <p>ESG News Found: ${errorData.news_found} articles</p>
-                <p>Minimum Required: 2 articles</p>
-                <p>Status: Insufficient public ESG reporting</p>
-            </div>
-            <p style="color: #666; margin-bottom: 30px;">
-                ${errorData.suggestion}
-            </p>
-            <button class="btn btn-primary" onclick="newSearch()">
-                <i class="fas fa-search"></i>
-                Try Another Company
-            </button>
-        </div>
-    `;
-    
-    document.getElementById('results').innerHTML = errorHtml;
-    document.getElementById('results').style.display = 'block';
-}
+// ---------------------------------------------------------------
+// Display Results
+// ---------------------------------------------------------------
 
 function displayResults(data) {
-    // Ensure elements exist before accessing them
-    const resultCompany = document.getElementById('resultCompany');
-    if (!resultCompany) {
-        console.error('Required DOM elements not found');
+    // Company info
+    $('resultCompany').textContent = data.company_name;
+    $('sectorBadge').innerHTML = `<i class="fas fa-industry"></i> ${data.sector || 'Unknown'}`;
+    $('countryBadge').innerHTML = `<i class="fas fa-globe"></i> ${data.country || 'Global'}`;
+
+    const ticker = data.ticker && data.ticker !== 'N/A' ? data.ticker : '';
+    $('tickerBadge').textContent = ticker ? `$${ticker}` : '';
+    $('tickerBadge').style.display = ticker ? 'inline-flex' : 'none';
+
+    // Logo
+    const logo = $('companyLogo');
+    logo.src = data.company_logo || generateFallbackLogo(data.company_name);
+    logo.onerror = () => { logo.src = generateFallbackLogo(data.company_name); };
+
+    // Scores
+    const esgScore = data.esg_score || 0;
+    $('esgScore').textContent = esgScore;
+    $('esgRating').textContent = data.rating || 'N/A';
+
+    // Animate ring
+    const circumference = 2 * Math.PI * 52;
+    const offset = circumference - (esgScore / 100) * circumference;
+    requestAnimationFrame(() => {
+        $('ringFill').style.strokeDashoffset = offset;
+    });
+
+    // Pillar scores with animated bars
+    const pillars = [
+        { score: data.environmental, id: 'envScore', bar: 'envBar' },
+        { score: data.social, id: 'socialScore', bar: 'socialBar' },
+        { score: data.governance, id: 'govScore', bar: 'govBar' },
+        { score: data.innovation, id: 'innovScore', bar: 'innovBar' },
+    ];
+
+    pillars.forEach((p) => {
+        const score = p.score || 0;
+        $(p.id).textContent = `${score}/25`;
+        requestAnimationFrame(() => {
+            $(p.bar).style.width = `${(score / 25) * 100}%`;
+        });
+    });
+
+    // Research Insights
+    renderInsights(data.research_insights || []);
+
+    // News Evidence
+    renderEvidence(data.news_evidence || []);
+
+    // Risk Factors
+    renderRisks(data.risk_factors || []);
+
+    // Methodology
+    if (data.methodology) {
+        const parts = [data.methodology.framework];
+        if (data.methodology.research_applied) {
+            parts.push('Scores adjusted using real-time research data from web sources.');
+        }
+        parts.push(`Each ESG pillar scores up to ${data.methodology.max_pillar_score} points.`);
+        $('methodologyText').textContent = parts.join(" - ");
+    }
+
+    showSection('results');
+}
+
+// ---------------------------------------------------------------
+// Render Components
+// ---------------------------------------------------------------
+
+function renderInsights(insights) {
+    const grid = $('insightsGrid');
+    $('insightCount').textContent = `${insights.length} insight${insights.length !== 1 ? 's' : ''}`;
+
+    if (!insights.length) {
+        grid.innerHTML = '<p style="color: var(--text-muted); font-size: 14px;">No AI insights available for this company.</p>';
         return;
     }
-    
-    // Populate company information
-    resultCompany.textContent = data.company_name;
-    document.getElementById('sectorBadge').textContent = data.sector || data.raw_data?.company_profile?.sector || 'Unknown';
-    document.getElementById('countryBadge').textContent = data.country || 'Global';
-    
-    // Set company logo (fallback to generated)
-    const logoImg = document.getElementById('companyLogo');
-    logoImg.src = data.company_logo || generateLogo(data.company_name);
-    logoImg.onerror = function() {
-        this.src = generateLogo(data.company_name);
+
+    grid.innerHTML = insights.map(i => `
+        <div class="insight-card">
+            <div class="insight-category">${escapeHtml(i.category)}</div>
+            <div class="insight-text">${escapeHtml(i.finding)}</div>
+            <div class="insight-sources">${i.source_count} source${i.source_count !== 1 ? 's' : ''}</div>
+        </div>
+    `).join('');
+}
+
+function renderEvidence(evidence) {
+    const list = $('evidenceList');
+    $('evidenceCount').textContent = `${evidence.length} source${evidence.length !== 1 ? 's' : ''}`;
+
+    if (!evidence.length) {
+        list.innerHTML = '<p style="color: var(--text-muted); font-size: 14px; text-align: center; padding: 20px;">No source evidence available.</p>';
+        return;
+    }
+
+    const categoryColors = {
+        'Esg Overview': 'var(--accent)',
+        'Environmental': 'var(--env-color)',
+        'Social': 'var(--soc-color)',
+        'Governance': 'var(--gov-color)',
+        'Innovation': 'var(--inn-color)',
+        'Risks': 'var(--risk-color)',
     };
 
-    // Display scientific ESG scores
-    if (data.final_scores) {
-        document.getElementById('esgScore').textContent = data.final_scores.overall;
-        document.getElementById('esgRating').textContent = data.final_scores.rating;
-        document.getElementById('envScore').textContent = data.final_scores.environmental;
-        document.getElementById('socialScore').textContent = data.final_scores.social;
-        document.getElementById('govScore').textContent = data.final_scores.governance;
-        document.getElementById('innovScore').textContent = data.final_scores.innovation;
-    } else {
-        // Fallback for old format
-        document.getElementById('esgScore').textContent = data.esg_score || 0;
-        document.getElementById('esgRating').textContent = data.rating || 'Unknown';
-        document.getElementById('envScore').textContent = data.environmental || 0;
-        document.getElementById('socialScore').textContent = data.social || 0;
-        document.getElementById('govScore').textContent = data.governance || 0;
-        document.getElementById('innovScore').textContent = data.innovation || 0;
-    }
-
-    // Display scientific methodology info
-    if (data.methodology) {
-        const methodologyInfo = document.createElement('div');
-        methodologyInfo.style.cssText = 'background: #e8f5e8; border: 1px solid #87A96B; padding: 15px; border-radius: 10px; margin: 20px 0;';
-        methodologyInfo.innerHTML = `
-            <h4>🔬 Scientific ESG Analysis</h4>
-            <p><strong>Framework:</strong> ${data.methodology.framework}</p>
-            <p><strong>Method:</strong> ${data.methodology.calculation_method}</p>
-            <p><strong>Confidence:</strong> ${data.methodology.confidence_interval.lower_bound} - ${data.methodology.confidence_interval.upper_bound} (${data.methodology.confidence_interval.confidence_level})</p>
-            <p><strong>Industry Benchmarking:</strong> ${data.methodology.industry_benchmarking ? 'Yes' : 'No'}</p>
-        `;
-        document.getElementById('results').insertBefore(methodologyInfo, document.getElementById('results').firstChild);
-    }
-
-    // Display raw data transformation
-    if (data.raw_data) {
-        displayRawDataTransformation(data);
-    }
-
-    // Display news evidence (fallback to empty if not available)
-    allNewsItems = data.news_evidence || [];
-    displayNewsEvidence();
-
-    // Show results
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('results').style.display = 'block';
-}
-
-function displayRawDataTransformation(data) {
-    // Create raw data section
-    const rawDataSection = document.createElement('div');
-    rawDataSection.style.cssText = 'margin: 30px 0; padding: 25px; background: #f8f9fa; border-radius: 15px; border-left: 4px solid #87A96B;';
-    
-    rawDataSection.innerHTML = `
-        <h3>📊 Raw Data → ESG Transformation</h3>
-        <p>Scientific calculation showing how raw metrics are transformed into ESG scores</p>
-        
-        <div class="transformation-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">
-            ${generateTransformationCard('Environmental', data.raw_data.environmental_metrics, data.esg_analysis.environmental)}
-            ${generateTransformationCard('Social', data.raw_data.social_metrics, data.esg_analysis.social)}
-            ${generateTransformationCard('Governance', data.raw_data.governance_metrics, data.esg_analysis.governance)}
-            ${generateTransformationCard('Innovation', data.raw_data.innovation_metrics, data.esg_analysis.innovation)}
-        </div>
-        
-        <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 10px;">
-            <h4>🏢 Company Profile</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                <div><strong>Employees:</strong> ${data.raw_data.company_profile.employees.toLocaleString()}</div>
-                <div><strong>Revenue:</strong> $${data.raw_data.company_profile.revenue_usd_millions.toLocaleString()}M</div>
-                <div><strong>Market Cap:</strong> $${data.raw_data.company_profile.market_cap_usd_billions}B</div>
-                <div><strong>Sector:</strong> ${data.raw_data.company_profile.sector}</div>
-            </div>
-        </div>
-    `;
-    
-    // Insert after company header
-    const companyHeader = document.querySelector('.company-header');
-    companyHeader.parentNode.insertBefore(rawDataSection, companyHeader.nextSibling);
-}
-
-function generateTransformationCard(category, rawData, analysis) {
-    const categoryKey = category.toLowerCase();
-    const keyMetrics = analysis.key_metrics;
-    const score = analysis.score;
-    
-    let metricsHtml = '';
-    for (const [key, value] of Object.entries(keyMetrics)) {
-        const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        const displayValue = typeof value === 'number' ? 
-            (value % 1 === 0 ? value.toLocaleString() : value.toFixed(2)) : value;
-        metricsHtml += `<div><strong>${displayKey}:</strong> ${displayValue}</div>`;
-    }
-    
-    return `
-        <div style="background: white; padding: 20px; border-radius: 10px; border: 2px solid #e9ecef;">
-            <h4 style="color: #87A96B; margin-bottom: 15px;">📈 ${category}</h4>
-            
-            <div style="margin-bottom: 15px;">
-                <h5>Raw Metrics:</h5>
-                ${metricsHtml}
-            </div>
-            
-            <div style="margin-bottom: 15px;">
-                <h5>Calculation Process:</h5>
-                <div style="font-size: 12px; color: #666;">
-                    • Industry benchmarking applied<br/>
-                    • Z-score normalization used<br/>
-                    • Weighted scoring methodology<br/>
-                    • Statistical confidence: 95%
+    list.innerHTML = evidence.map(e => {
+        const color = categoryColors[e.category] || 'var(--accent)';
+        return `
+            <a class="evidence-item" href="${escapeHtml(e.url)}" target="_blank" rel="noopener noreferrer">
+                <div class="evidence-category-dot" style="background: ${color}"></div>
+                <div class="evidence-body">
+                    <div class="evidence-title">${escapeHtml(e.title)}</div>
+                    <div class="evidence-snippet">${escapeHtml(e.snippet)}</div>
+                    <div class="evidence-meta">
+                        <span class="evidence-source">${escapeHtml(e.source)}</span>
+                        <span>${e.category}</span>
+                    </div>
                 </div>
-            </div>
-            
-            <div style="background: #87A96B; color: white; padding: 10px; border-radius: 8px; text-align: center;">
-                <strong>Final Score: ${score}/100</strong>
-            </div>
-        </div>
-    `;
+                <span class="evidence-external"><i class="fas fa-external-link-alt"></i></span>
+            </a>
+        `;
+    }).join('');
 }
 
-    // Display real news evidence with pagination
-    displayNewsEvidence();
+function renderRisks(risks) {
+    const list = $('riskList');
 
-    // Show results
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('results').style.display = 'block';
-}
-
-function displayNewsEvidence() {
-    const evidenceGrid = document.getElementById('evidenceGrid');
-    const evidenceSection = document.querySelector('.evidence-section');
-    
-    // Clear existing content
-    evidenceGrid.innerHTML = '';
-    
-    // Remove existing pagination if any
-    const existingPagination = evidenceSection.querySelector('.news-pagination');
-    if (existingPagination) {
-        existingPagination.remove();
-    }
-    
-    if (allNewsItems.length === 0) {
-        evidenceGrid.innerHTML = '<p>No recent ESG news found for this company.</p>';
+    if (!risks.length) {
+        list.innerHTML = '<div class="no-risks"><i class="fas fa-shield-alt"></i> No significant risk factors identified</div>';
         return;
     }
-    
-    // Calculate pagination
-    const startIndex = currentNewsPage * newsPerPage;
-    const endIndex = Math.min(startIndex + newsPerPage, allNewsItems.length);
-    const currentNews = allNewsItems.slice(startIndex, endIndex);
-    
-    // Display current page news
-    currentNews.forEach((news, index) => {
-        const evidenceItem = document.createElement('div');
-        evidenceItem.className = 'evidence-item clickable-news';
-        
-        // Add "Used in ESG Scoring" indicator
-        const usedInScoring = news.used_in_scoring ? 
-            '<span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 8px; font-size: 10px; margin-left: 10px;">Used in ESG Scoring</span>' : '';
-        
-        evidenceItem.innerHTML = `
-            <div class="news-header">
-                <h5>${news.title}</h5>
-                <span class="news-source">${news.source}</span>
+
+    list.innerHTML = risks.map(r => `
+        <div class="risk-item">
+            <div class="risk-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <div>
+                <div class="risk-severity">${escapeHtml(r.severity)} Risk</div>
+                <div class="risk-text">${escapeHtml(r.description)}</div>
             </div>
-            <div class="news-content">
-                <p>${news.snippet}</p>
-                <div class="news-meta">
-                    <span class="news-date">${news.date}</span>
-                    <span class="relevance-score">Relevance: ${news.relevance_score}/10</span>
-                </div>
-                ${usedInScoring}
-            </div>
-            <div class="news-actions">
-                <button onclick="openNewsLink('${news.url}')" class="news-link-btn">
-                    <i class="fas fa-external-link-alt"></i>
-                    Read Full Article
-                </button>
-            </div>
-        `;
-        evidenceGrid.appendChild(evidenceItem);
+        </div>
+    `).join('');
+}
+
+// ---------------------------------------------------------------
+// Report Generation
+// ---------------------------------------------------------------
+
+function generateReport() {
+    if (!currentCompanyData) return;
+
+    const d = currentCompanyData;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+    const W = 210; // A4 width mm
+    const MARGIN = 18;
+    const COL = W - MARGIN * 2;
+    let y = 0;
+
+    // ── Helpers ──────────────────────────────────────────────
+    const hex = (h) => {
+        const r = parseInt(h.slice(1, 3), 16);
+        const g = parseInt(h.slice(3, 5), 16);
+        const b = parseInt(h.slice(5, 7), 16);
+        return [r, g, b];
+    };
+    const setFont = (size, style = 'normal', color = '#1a1a1a') => {
+        doc.setFontSize(size);
+        doc.setFont('helvetica', style);
+        doc.setTextColor(...hex(color));
+    };
+    const rule = (yPos, color = '#e2e8f0') => {
+        doc.setDrawColor(...hex(color));
+        doc.setLineWidth(0.3);
+        doc.line(MARGIN, yPos, W - MARGIN, yPos);
+    };
+    const wrap = (text, maxWidth) => doc.splitTextToSize(String(text || ''), maxWidth);
+
+    // ── Header bar ───────────────────────────────────────────
+    doc.setFillColor(...hex('#0f2419'));
+    doc.rect(0, 0, W, 28, 'F');
+
+    setFont(20, 'bold', '#4ade80');
+    doc.text('SynthESG', MARGIN, 13);
+    setFont(9, 'normal', '#86efac');
+    doc.text('AI-Powered ESG Intelligence Report', MARGIN, 20);
+
+    const dateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    setFont(8, 'normal', '#86efac');
+    doc.text(dateStr, W - MARGIN, 20, { align: 'right' });
+
+    y = 38;
+
+    // ── Company title ─────────────────────────────────────────
+    setFont(18, 'bold', '#0f2419');
+    doc.text(d.company_name, MARGIN, y);
+    y += 7;
+
+    setFont(9, 'normal', '#64748b');
+    const meta = [d.sector, d.country].filter(Boolean).join('  ·  ');
+    if (meta) { doc.text(meta, MARGIN, y); y += 5; }
+
+    rule(y); y += 7;
+
+    // ── Score summary box ─────────────────────────────────────
+    doc.setFillColor(...hex('#f0fdf4'));
+    doc.roundedRect(MARGIN, y, COL, 28, 3, 3, 'F');
+
+    // Big score
+    setFont(36, 'bold', '#16a34a');
+    doc.text(String(d.esg_score), MARGIN + 14, y + 19, { align: 'center' });
+    setFont(9, 'normal', '#64748b');
+    doc.text('/100', MARGIN + 22, y + 19);
+
+    // Rating
+    setFont(15, 'bold', '#0f2419');
+    doc.text(d.rating || '', MARGIN + 38, y + 13);
+    setFont(8, 'normal', '#64748b');
+    doc.text('Overall ESG Rating', MARGIN + 38, y + 19);
+
+    // Pillars inline
+    const pillars = [
+        { label: 'Environmental', val: d.environmental, color: '#16a34a' },
+        { label: 'Social', val: d.social, color: '#2563eb' },
+        { label: 'Governance', val: d.governance, color: '#7c3aed' },
+        { label: 'Innovation', val: d.innovation, color: '#d97706' },
+    ];
+    const pX = MARGIN + 90;
+    const pGap = (COL - 90) / 4;
+    pillars.forEach((p, i) => {
+        const x = pX + i * pGap + pGap / 2;
+        setFont(13, 'bold', p.color);
+        doc.text(String(p.val), x, y + 13, { align: 'center' });
+        setFont(7, 'normal', '#64748b');
+        doc.text('/25', x + 5, y + 13);
+        setFont(7, 'normal', '#374151');
+        doc.text(p.label, x, y + 20, { align: 'center' });
     });
-    
-    // Add pagination controls at the bottom of evidence section (not in grid)
-    if (allNewsItems.length > newsPerPage) {
-        const paginationDiv = document.createElement('div');
-        paginationDiv.className = 'news-pagination';
-        
-        const totalPages = Math.ceil(allNewsItems.length / newsPerPage);
-        const currentPageNum = currentNewsPage + 1;
-        
-        paginationDiv.innerHTML = `
-            <div class="pagination-info">
-                Showing ${startIndex + 1}-${endIndex} of ${allNewsItems.length} ESG news articles used in analysis
+
+    y += 36;
+
+    // ── Section helper ─────────────────────────────────────────
+    const section = (title, icon = '') => {
+        if (y > 260) { doc.addPage(); y = 20; }
+        setFont(11, 'bold', '#0f2419');
+        doc.text(`${icon}  ${title}`, MARGIN, y);
+        y += 3;
+        rule(y, '#bbf7d0'); y += 5;
+    };
+
+    // ── Research Insights ──────────────────────────────────────
+    const insights = d.research_insights || [];
+    if (insights.length) {
+        section('Research Insights');
+        insights.forEach((ins) => {
+            if (y > 265) { doc.addPage(); y = 20; }
+            // Category chip
+            doc.setFillColor(...hex('#dcfce7'));
+            doc.roundedRect(MARGIN, y - 3, 40, 5, 1, 1, 'F');
+            setFont(7, 'bold', '#15803d');
+            doc.text(ins.category || '', MARGIN + 2, y + 1);
+
+            y += 5;
+            setFont(8, 'normal', '#374151');
+            const lines = wrap(ins.finding, COL);
+            doc.text(lines, MARGIN, y);
+            y += lines.length * 4 + 4;
+        });
+        y += 2;
+    }
+
+    // ── Source Evidence ────────────────────────────────────────
+    const evidence = (d.news_evidence || []).slice(0, 6);
+    if (evidence.length) {
+        section('Source Evidence');
+        evidence.forEach((ev, i) => {
+            if (y > 265) { doc.addPage(); y = 20; }
+            setFont(8, 'bold', '#0f2419');
+            const titleLines = wrap(`${i + 1}. ${ev.title}`, COL);
+            doc.text(titleLines, MARGIN, y);
+            y += titleLines.length * 4;
+
+            if (ev.snippet) {
+                setFont(7, 'normal', '#64748b');
+                const snipLines = wrap(ev.snippet, COL);
+                doc.text(snipLines, MARGIN + 3, y);
+                y += snipLines.length * 3.5;
+            }
+
+            setFont(7, 'normal', '#2563eb');
+            doc.text(ev.url || '', MARGIN + 3, y, { maxWidth: COL });
+            y += 5;
+        });
+        y += 2;
+    }
+
+    // ── Methodology ────────────────────────────────────────────
+    if (d.methodology) {
+        if (y > 255) { doc.addPage(); y = 20; }
+        section('Methodology');
+        setFont(8, 'normal', '#374151');
+        const mLines = wrap(
+            `${d.methodology.framework}. Max pillar score: ${d.methodology.max_pillar_score}/25. ` +
+            (d.methodology.research_applied ? 'Scores adjusted using real-time research data.' : ''),
+            COL
+        );
+        doc.text(mLines, MARGIN, y);
+        y += mLines.length * 4 + 4;
+    }
+
+    // ── Footer on every page ───────────────────────────────────
+    const totalPages = doc.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+        doc.setPage(p);
+        doc.setFillColor(...hex('#0f2419'));
+        doc.rect(0, 287, W, 10, 'F');
+        setFont(7, 'normal', '#86efac');
+        doc.text('Generated by SynthESG · synthESG.ai', MARGIN, 293);
+        doc.text(`Page ${p} of ${totalPages}`, W - MARGIN, 293, { align: 'right' });
+    }
+
+    // ── Save ───────────────────────────────────────────────────
+    const filename = `SynthESG_${d.company_name.replace(/\s+/g, '_')}_ESG_Report.pdf`;
+    doc.save(filename);
+}
+
+// ---------------------------------------------------------------
+// Error Display
+// ---------------------------------------------------------------
+
+function showError(title, message, suggestion, severity) {
+    const iconMap = { danger: 'fas fa-times-circle', warning: 'fas fa-exclamation-circle' };
+
+    $('results').innerHTML = `
+        <div class="error-container">
+            <div class="error-icon-wrapper ${severity}">
+                <i class="${iconMap[severity] || iconMap.danger}"></i>
             </div>
-            <div class="pagination-controls">
-                <button onclick="previousNewsPage()" ${currentNewsPage === 0 ? 'disabled' : ''} class="pagination-btn">
-                    <i class="fas fa-chevron-left"></i>
-                    Previous
-                </button>
-                <span class="page-indicator">Page ${currentPageNum} of ${totalPages}</span>
-                <button onclick="nextNewsPage()" ${currentNewsPage >= totalPages - 1 ? 'disabled' : ''} class="pagination-btn">
-                    Next
-                    <i class="fas fa-chevron-right"></i>
-                </button>
-            </div>
-        `;
-        
-        // Append pagination to evidence section (not grid)
-        evidenceSection.appendChild(paginationDiv);
-    }
+            <h2>${escapeHtml(title)}</h2>
+            <p>${escapeHtml(message || 'Something went wrong.')}</p>
+            ${suggestion ? `<p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">${escapeHtml(suggestion)}</p>` : ''}
+            <button class="action-btn secondary" onclick="newSearch()">
+                <i class="fas fa-arrow-left"></i> Try Again
+            </button>
+        </div>
+    `;
+    showSection('results');
 }
 
-function previousNewsPage() {
-    if (currentNewsPage > 0) {
-        currentNewsPage--;
-        displayNewsEvidence();
-    }
-}
+// ---------------------------------------------------------------
+// Navigation
+// ---------------------------------------------------------------
 
-function nextNewsPage() {
-    const totalPages = Math.ceil(allNewsItems.length / newsPerPage);
-    if (currentNewsPage < totalPages - 1) {
-        currentNewsPage++;
-        displayNewsEvidence();
-    }
-}
+function newSearch() {
+    currentCompanyData = null;
+    $('companyName').value = '';
+    showSection('hero');
 
-function openNewsLink(url) {
-    window.open(url, '_blank', 'noopener,noreferrer');
-}
+    // Reset ring
+    $('ringFill').style.strokeDashoffset = 326.73;
 
-async function generateReport() {
-    if (!currentCompanyData) {
-        alert('No company data available for report generation');
+    // Reset bars
+    ['envBar', 'socialBar', 'govBar', 'innovBar'].forEach(id => {
+        $(id).style.width = '0%';
+    });
+
+    // Restore results HTML if replaced by error
+    if (!document.querySelector('.company-card')) {
+        window.location.reload();
         return;
     }
-    
-    try {
-        // Show loading state
-        const reportBtn = document.getElementById('generateReportBtn');
-        const originalText = reportBtn.innerHTML;
-        reportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Report...';
-        reportBtn.disabled = true;
-        
-        const response = await fetch(`${CONFIG.API_ENDPOINT}/api/v1/report`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                company_name: currentCompanyData.company_name,
-                company_data: currentCompanyData
-            })
-        });
 
-        if (response.ok) {
-            const result = await response.json();
-            
-            // Create download link
-            const downloadLink = document.createElement('a');
-            downloadLink.href = result.download_url;
-            downloadLink.download = `${currentCompanyData.company_name}_ESG_Report.pdf`;
-            downloadLink.click();
-            
-            alert('✅ Professional ESG report generated successfully! Download started.');
+    $('companyName').focus();
+}
+
+function showSection(section) {
+    const hero = document.querySelector('.hero');
+    const loading = $('loading');
+    const results = $('results');
+
+    hero.style.display = section === 'hero' ? 'flex' : 'none';
+    loading.style.display = section === 'loading' ? 'flex' : 'none';
+    results.style.display = section === 'results' ? 'block' : 'none';
+
+    if (section !== 'hero') window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateLoadingSteps(active) {
+    for (let i = 1; i <= 3; i++) {
+        const step = $(`step${i}`);
+        step.className = 'step';
+        if (i < active) {
+            step.className = 'step done';
+            step.querySelector('i').className = 'fas fa-check-circle';
+        } else if (i === active) {
+            step.className = 'step active';
+            step.querySelector('i').className = 'fas fa-circle-notch fa-spin';
         } else {
-            throw new Error('Report generation failed');
+            step.querySelector('i').className = 'far fa-circle';
         }
-    } catch (error) {
-        console.error('Report generation error:', error);
-        alert('❌ Report generation failed. Please try again.');
-    } finally {
-        // Reset button
-        const reportBtn = document.getElementById('generateReportBtn');
-        reportBtn.innerHTML = '<i class="fas fa-file-pdf"></i> Generate Full Report';
-        reportBtn.disabled = false;
     }
 }
 
-function generateLogo(company) {
-    const initial = company.charAt(0).toUpperCase();
-    const svg = `<svg width="80" height="80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" fill="#87A96B" rx="12"/><text x="40" y="40" font-family="Inter, Arial" font-size="24" fill="white" text-anchor="middle" dy=".3em">${initial}</text></svg>`;
+// ---------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------
+
+function generateFallbackLogo(name) {
+    const initial = (name || '?').charAt(0).toUpperCase();
+    const svg = `<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">` +
+        `<rect width="64" height="64" fill="#1a251f" rx="8"/>` +
+        `<text x="32" y="32" font-family="Inter,Arial" font-size="22" font-weight="600" ` +
+        `fill="#4ade80" text-anchor="middle" dy=".35em">${initial}</text></svg>`;
     return 'data:image/svg+xml;base64,' + btoa(svg);
 }
 
-function newSearch() {
-    // Simple fix: reload page to reset interface after error
-    window.location.reload();
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 
-// Event listeners
-document.getElementById('companyName').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        analyzeCompany();
-    }
-});
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('ESGenius AI - Enhanced Professional System Loaded');
+// ---------------------------------------------------------------
+// API Health Check
+// ---------------------------------------------------------------
+
+async function checkApiHealth() {
+    const dot = $('statusDot');
+    const text = $('statusText');
+
+    dot.className = 'status-dot checking';
+    text.textContent = 'Checking…';
+
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(`${CONFIG.API_ENDPOINT}/api/v1/health`, {
+            signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (response.ok) {
+            dot.className = 'status-dot online';
+            text.textContent = 'API Online';
+        } else {
+            dot.className = 'status-dot offline';
+            text.textContent = 'API Error';
+        }
+    } catch {
+        dot.className = 'status-dot offline';
+        text.textContent = 'Offline';
+    }
+}
+
+// ---------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------
+
+document.addEventListener('DOMContentLoaded', () => {
+    $('companyName').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            analyzeCompany();
+        }
+    });
+
+    // Check API status on load and every 60s
+    checkApiHealth();
+    setInterval(checkApiHealth, 60000);
 });
