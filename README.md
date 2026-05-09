@@ -1,7 +1,7 @@
-# SynthESG — AI-Powered ESG Intelligence Platform
+# SynthESG: AI-Powered ESG Intelligence Platform
 
 > Real-time Environmental, Social & Governance intelligence powered by AI web research.
-> Enter any company name — SynthESG crawls the live web, benchmarks findings against sector averages, and returns a structured ESG scorecard with source evidence.
+> Enter any company name and SynthESG crawls the live web, benchmarks findings against sector averages, and returns a structured ESG scorecard with source evidence.
 
 ---
 
@@ -68,12 +68,12 @@ Structured ESG scorecard + source evidence + PDF export
 
 ## Features
 
-- 🔍 **Real-time AI research** — 4 targeted Tavily queries per analysis (ESG, environmental, social, governance)
-- 🏭 **Sector detection** — automatically classifies companies across 14 sectors using a dedicated profile query
-- 🌍 **HQ country detection** — identifies headquarters across 18 countries from research text
-- 📊 **Sector-benchmarked scoring** — scores are calibrated against sector-specific baselines, not generic averages
-- 📄 **PDF export** — generates a clean, formatted A4 ESG report with branding, score summary, insights, and sources
-- 🖥️ **Dark-mode SaaS UI** — animated score ring, pillar bars, source evidence cards
+- 🔍 **Real-time AI research**: 4 targeted Tavily queries per analysis (ESG, environmental, social, governance)
+- 🏭 **Sector detection**: automatically classifies companies across 14 sectors using a dedicated profile query
+- 🌍 **HQ country detection**: identifies headquarters across 18 countries from research text
+- 📊 **Sector-benchmarked scoring**: scores are calibrated against sector-specific baselines, not generic averages
+- 📄 **PDF export**: generates a clean, formatted A4 ESG report with branding, score summary, insights, and sources
+- 🖥️ **Dark-mode SaaS UI**: animated score ring, pillar bars, source evidence cards
 
 ---
 
