@@ -210,4 +210,4 @@ SOFTWARE.
 
 ---
 
-* Originally built for the [Great Malaysia AI Hackathon 2025](https://greataihackathon.com/) as a Year 1 Diploma in ICT(Software Engineering) student with my friends (Team Hello World!). It has since evolved into a personal full-stack portfolio project.*
+*Originally built for the [Great Malaysia AI Hackathon 2025](https://greataihackathon.com/) as a Year 1 Diploma in ICT(Software Engineering) student with my friends (Team Hello World!). It has since evolved into a personal full-stack portfolio project.*
