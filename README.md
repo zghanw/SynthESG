@@ -21,7 +21,7 @@
 
 ---
 
-## How It Works
+## How It Works + Demo
 
 ```
 User enters a company name
@@ -37,6 +37,9 @@ Sector-benchmarked scoring algorithm
          ↓
 Structured ESG scorecard + source evidence + PDF export
 ```
+
+![demo](assets/SynthESGDemo.gif)
+- This gif is capped at 4FPS btw XD
 
 ---
 
