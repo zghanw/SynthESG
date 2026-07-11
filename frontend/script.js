@@ -497,12 +497,14 @@ function updateLoadingSteps(active) {
 // ---------------------------------------------------------------
 
 function generateFallbackLogo(name) {
-    const initial = (name || '?').charAt(0).toUpperCase();
+    // Array.from()[0] takes the first code point (emoji-safe, no lone surrogate);
+    // URL-encoded data URI avoids btoa(), which throws on non-Latin1 chars (CJK, etc.).
+    const initial = (Array.from(name || '?')[0] || '?').toUpperCase();
     const svg = `<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">` +
         `<rect width="64" height="64" fill="#1a251f" rx="8"/>` +
         `<text x="32" y="32" font-family="Inter,Arial" font-size="22" font-weight="600" ` +
-        `fill="#4ade80" text-anchor="middle" dy=".35em">${initial}</text></svg>`;
-    return 'data:image/svg+xml;base64,' + btoa(svg);
+        `fill="#4ade80" text-anchor="middle" dy=".35em">${escapeHtml(initial)}</text></svg>`;
+    return 'data:image/svg+xml,' + encodeURIComponent(svg);
 }
 
 function escapeHtml(str) {
