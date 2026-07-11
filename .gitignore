@@ -33,3 +33,6 @@ dist/
 build/
 *.zip
 .pytest_cache/
+
+# Personal notes
+READING_GUIDE.md
